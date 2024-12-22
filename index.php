@@ -56,6 +56,24 @@
         .data-table tr:nth-child(even) {
             background-color: #f9f9f9;
         }
+        .toggle-button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .toggle-button.on {
+            background-color: #28a745;
+            color: white;
+        }
+        .toggle-button.off {
+            background-color: #dc3545;
+            color: white;
+        }
+        .table-container {
+            margin-top: 200px;
+        }
     </style>
 </head>
 <body>
@@ -64,9 +82,11 @@
         
         <div class="controls">
             <div class="status">
-                Offset Status: <span id="offsetStatus">OFF</span>
+                Status: <span id="offsetStatus">OFF</span>
             </div>
-            <button class="button" onclick="toggleOffset()">Toggle Offset</button>
+            <button id="toggleButton" class="toggle-button off" onclick="toggleOffset()">
+                OFFSET OFF
+            </button>
             <button class="button" onclick="downloadData()">Download Data</button>
         </div>
 
@@ -90,6 +110,8 @@
     </div>
 
     <script>
+        let isOffsetOn = false;
+        
         // Initialize chart
         const ctx = document.getElementById('distanceChart').getContext('2d');
         const chart = new Chart(ctx, {
@@ -110,117 +132,101 @@
                         beginAtZero: true,
                         max: 400
                     }
-                }
+                },
+                animation: false // Disable animations for better performance
             }
         });
 
-        // Load historical data on page load
-        async function loadHistoricalData() {
-            try {
-                const response = await fetch('get_history.php');
-                const data = await response.json();
-                
-                // Update chart with historical data
-                data.forEach(entry => {
-                    const timeStr = new Date(entry.timestamp).toLocaleTimeString();
-                    chart.data.labels.push(timeStr);
-                    chart.data.datasets[0].data.push(entry.distance);
-                });
-                
-                chart.update();
-                
-                // Update table
-                updateDataTable(data);
-            } catch (error) {
-                console.error('Error loading historical data:', error);
-            }
-        }
-
         // Update chart data
-        function updateChart(distance) {
-            const now = new Date();
-            const timeStr = now.toLocaleTimeString();
+        function updateChart(timestamp, distance) {
+            const timeStr = new Date(timestamp).toLocaleTimeString();
             
             chart.data.labels.push(timeStr);
             chart.data.datasets[0].data.push(distance);
             
             // Keep only last 50 data points
-            if (chart.data.labels.length > 50) {
+            if (chart.data.labels.length > 25) {
                 chart.data.labels.shift();
                 chart.data.datasets[0].data.shift();
             }
             
-            chart.update();
+            chart.update('none'); // Update without animation
             
-            // Update table with new data
+            // Update table
+            updateTable(timestamp, distance);
+        }
+
+        // Update table
+        function updateTable(timestamp, distance) {
             const tableBody = document.querySelector('#dataTable tbody');
             const newRow = document.createElement('tr');
             newRow.innerHTML = `
-                <td>${now.toLocaleString()}</td>
+                <td>${new Date(timestamp).toLocaleString()}</td>
                 <td>${distance}</td>
             `;
             tableBody.insertBefore(newRow, tableBody.firstChild);
             
-            // Keep only last 50 rows in table
-            while (tableBody.children.length > 50) {
+            // Keep only last 50 rows
+            while (tableBody.children.length > 5) {
                 tableBody.removeChild(tableBody.lastChild);
             }
         }
 
-        // Update data table
-        function updateDataTable(data) {
-            const tableBody = document.querySelector('#dataTable tbody');
-            tableBody.innerHTML = '';
+        // Toggle offset
+        function toggleOffset() {
+            isOffsetOn = !isOffsetOn;
+            const button = document.getElementById('toggleButton');
+            const statusSpan = document.getElementById('offsetStatus');
             
-            data.forEach(entry => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${new Date(entry.timestamp).toLocaleString()}</td>
-                    <td>${entry.distance}</td>
-                `;
-                tableBody.appendChild(row);
+            // Update button appearance
+            button.className = `toggle-button ${isOffsetOn ? 'on' : 'off'}`;
+            button.textContent = `OFFSET ${isOffsetOn ? 'ON' : 'OFF'}`;
+            statusSpan.textContent = isOffsetOn ? 'ON' : 'OFF';
+
+            // Send status to server
+            fetch('toggle_offset.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                    status: isOffsetOn ? 'on' : 'off' 
+                })
             });
         }
 
-        // Download data as CSV
+        // Download data
         function downloadData() {
             window.location.href = 'sensor_data.csv';
         }
 
-        // Toggle offset status
-        function toggleOffset() {
-            const currentStatus = document.getElementById('offsetStatus').innerText;
-            const newStatus = currentStatus === 'OFF' ? 'ON' : 'OFF';
-            
-            fetch('toggle_offset.php', {
-                method: 'POST',
-                body: JSON.stringify({ status: newStatus.toLowerCase() })
-            })
-            .then(response => response.text())
-            .then(result => {
-                document.getElementById('offsetStatus').innerText = newStatus;
-            });
+        // Real-time data polling
+        function pollData() {
+            fetch('get_history.php')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.length > 0) {
+                        const lastEntry = data[data.length - 1];
+                        updateChart(lastEntry.timestamp, lastEntry.distance);
+                    }
+                })
+                .catch(error => console.error('Error polling data:', error));
         }
 
-        // Connect to SSE
-        const evtSource = new EventSource('sse.php');
-        
-        evtSource.onmessage = function(event) {
-            const data = event.data;
-            if (data === 'offset_on' || data === 'offset_off') {
-                document.getElementById('offsetStatus').innerText = 
-                    data === 'offset_on' ? 'ON' : 'OFF';
-            } else {
-                // Assume it's distance data
-                const distance = parseInt(data);
-                if (!isNaN(distance)) {
-                    updateChart(distance);
-                }
-            }
-        };
+        // Start polling when page loads
+        window.addEventListener('load', () => {
+            // Load initial data
+            fetch('get_history.php')
+                .then(response => response.json())
+                .then(data => {
+                    data.forEach(entry => {
+                        updateChart(entry.timestamp, entry.distance);
+                    });
+                });
 
-        // Load historical data when page loads
-        loadHistoricalData();
+            // Set up polling interval
+            setInterval(pollData, 1000); // Poll every second
+        });
     </script>
 </body>
 </html>

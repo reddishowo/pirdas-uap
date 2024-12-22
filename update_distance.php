@@ -1,7 +1,6 @@
 <?php
-header('Content-Type: text/event-stream');
+header('Content-Type: application/json');
 header('Cache-Control: no-cache');
-header('Connection: keep-alive');
 header('Access-Control-Allow-Origin: *');
 
 if(isset($_GET['distance'])) {
@@ -12,8 +11,9 @@ if(isset($_GET['distance'])) {
     $data = "$timestamp,$distance\n";
     file_put_contents('sensor_data.csv', $data, FILE_APPEND);
     
-    // Send the distance as SSE data
-    echo "data: " . $distance . "\n\n";
-    flush();
+    // Return JSON response
+    echo json_encode([
+        'timestamp' => $timestamp,
+        'distance' => $distance
+    ]);
 }
-?>

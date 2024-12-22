@@ -3,12 +3,12 @@
 #include <WiFiClient.h>
 
 // WiFi credentials
-const char* ssid = "Cihuy";
-const char* password = "Rauls234";
+const char* ssid = "AYENK";
+const char* password = "TRX7904AAM";
 
 // Server URLs
-const char* sseUrl = "http://192.168.69.111/UAPFIX/sse.php";
-const char* dataUrl = "http://192.168.69.111/UAPFIX/update_distance.php"; // Tambahkan URL untuk update data
+const char* sseUrl = "http://192.168.1.127/UAPFIX/sse.php";
+const char* dataUrl = "http://192.168.1.127/UAPFIX/update_distance.php";
 
 // Pin definitions
 const int trigPin = 12;
@@ -31,7 +31,7 @@ int distance;
 
 // Timer untuk mengirim data
 unsigned long lastSendTime = 0;
-const long sendInterval = 1000; // Kirim data setiap 1 detik
+const long sendInterval = 1000;
 
 WiFiClient client;
 HTTPClient http;
@@ -48,7 +48,7 @@ void setup() {
     Serial.begin(9600);
     digitalWrite(redLightPin, HIGH);
     digitalWrite(violationPin, LOW);
-    digitalWrite(buzzerPin, LOW);
+    analogWrite(buzzerPin, 0); // Turn off buzzer initially
 
     // Connect to WiFi
     WiFi.begin(ssid, password);
@@ -93,6 +93,7 @@ void loop() {
 
     if (distance <= 0 || distance > 400) {
         Serial.println("Invalid reading detected.");
+        analogWrite(buzzerPin, 0); // Turn off buzzer for invalid readings
         return;
     }
 
@@ -100,13 +101,22 @@ void loop() {
         distance += 200;
     }
 
-    if (!addOffset && distance < 51) {
-        digitalWrite(violationPin, HIGH);
-        digitalWrite(buzzerPin, HIGH);
-        Serial.println("Violation detected!");
+    // Calculate buzzer volume based on distance
+    if (!addOffset) {
+        if (distance < 51) {
+            digitalWrite(violationPin, HIGH);
+            // Calculate buzzer volume - inverse relationship with distance
+            // Closer distance = lower volume, further distance = higher volume
+            int buzzerVolume = map(distance, 0, 50, 0, 255);
+            analogWrite(buzzerPin, buzzerVolume);
+            Serial.println("Violation detected! Distance: " + String(distance) + "cm, Buzzer: " + String(buzzerVolume));
+        } else {
+            digitalWrite(violationPin, LOW);
+            analogWrite(buzzerPin, 0); // Turn off buzzer
+        }
     } else {
         digitalWrite(violationPin, LOW);
-        digitalWrite(buzzerPin, LOW);
+        analogWrite(buzzerPin, 0); // Turn off buzzer when offset is active
     }
 
     // Kirim data ke server setiap interval
@@ -121,6 +131,7 @@ void loop() {
     delay(100);
 }
 
+// Rest of the functions (sendDistanceData, connectToSSE, handleSSE, processSSEMessage) remain the same
 void sendDistanceData(int distance) {
     if (WiFi.status() == WL_CONNECTED) {
         HTTPClient http;
@@ -142,9 +153,8 @@ void sendDistanceData(int distance) {
 void connectToSSE() {
     HTTPClient http;
     
-    // Parse host and path from URL
-    String host = "192.168.69.111";  // Ganti dengan IP server Anda
-    String path = "/UAPFIX/sse.php"; // Ganti dengan path yang sesuai
+    String host = "192.168.1.127";
+    String path = "/UAPFIX/sse.php";
     
     if (!client.connect(host.c_str(), 80)) {
         Serial.println("Failed to connect to SSE server");
@@ -152,7 +162,6 @@ void connectToSSE() {
         return;
     }
 
-    // Send HTTP request
     String request = String("GET ") + path + " HTTP/1.1\r\n" +
                     "Host: " + host + "\r\n" +
                     "Accept: text/event-stream\r\n" +
@@ -161,7 +170,6 @@ void connectToSSE() {
                     
     client.print(request);
     
-    // Wait for response
     unsigned long timeout = millis();
     while (client.available() == 0) {
         if (millis() - timeout > 5000) {
@@ -172,7 +180,6 @@ void connectToSSE() {
         }
     }
 
-    // Read headers
     while (client.available()) {
         String line = client.readStringUntil('\n');
         if (line == "\r") {
