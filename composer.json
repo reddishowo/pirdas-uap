@@ -1,0 +1,6 @@
+{
+    "require": {
+        "php-mqtt/client": "^2.2",
+        "psr/log": "^3.0"
+    }
+}
