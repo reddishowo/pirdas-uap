@@ -145,7 +145,7 @@
 
 <body>
     <div class="container">
-        <h1>Ultrasonic Sensor Monitor</h1>
+        <h1>DETEKSI PELANGGARAN (ULTRASONIC)</h1>
 
         <div class="status-panel">
             <div class="status-title">Device Status</div>
