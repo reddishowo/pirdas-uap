@@ -34,8 +34,8 @@ int distance;
 // Timer variables
 unsigned long lastSendTime = 0;
 unsigned long lastStatusSendTime = 0;
-const long sendInterval = 1000;
-const long statusSendInterval = 2000;  // Send status every 2 seconds
+const long sendInterval = 500;
+const long statusSendInterval = 500;  // Send status every 2 seconds
 
 WiFiClient client;
 HTTPClient http;
@@ -109,9 +109,9 @@ void loop() {
     // Handle buzzer activation based on distance
     bool previousBuzzerState = isBuzzerActive;
     if (!addOffset) {
-        if (distance < 51) {
+        if (distance < 21) {
             digitalWrite(violationPin, HIGH);
-            int buzzerVolume = map(distance, 0, 50, 0, 255);
+            int buzzerVolume = map(distance, 0, 20, 0, 255);
             analogWrite(buzzerPin, buzzerVolume);
             isBuzzerActive = true;
             Serial.println("Violation detected! Distance: " + String(distance) + "cm, Buzzer: " + String(buzzerVolume));
@@ -157,14 +157,12 @@ void sendStatusUpdate() {
         url += "?offset=" + String(addOffset ? "1" : "0");
         url += "&buzzer=" + String(isBuzzerActive ? "1" : "0");
         
-        Serial.println("Sending status update to: " + url);  // Debug print
         
         http.begin(url);
         int httpResponseCode = http.GET();
         
         if (httpResponseCode > 0) {
             String response = http.getString();
-            Serial.println("Status update response: " + response);
             Serial.println("Status update sent successfully");
         } else {
             Serial.print("Error sending status update. Error code: ");

@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>Ultrasonic Sensor Monitor</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
@@ -137,7 +138,8 @@
             color: #666;
             margin-top: 10px;
         }
-        .table-container{
+
+        .table-container {
             margin-top: 200px;
         }
     </style>
@@ -224,8 +226,7 @@
             buzzerIndicator.className = `status-indicator status-${status.buzzer.toLowerCase()}`;
 
             // Update last update time
-            lastUpdateSpan.textContent = new Date(status.timestamp).toLocaleString();
-        }
+            lastUpdateSpan.textContent = formatWIBTimestamp(status.timestamp);        }
 
         // Poll device status
         function pollStatus() {
@@ -239,7 +240,7 @@
 
         // Chart update function remains the same
         function updateChart(timestamp, distance) {
-            const timeStr = new Date(timestamp).toLocaleTimeString();
+            const timeStr = formatWIBTimestamp(timestamp).split(', ')[1]; // Only get the time part
 
             chart.data.labels.push(timeStr);
             chart.data.datasets[0].data.push(distance);
@@ -258,9 +259,9 @@
             const tableBody = document.querySelector('#dataTable tbody');
             const newRow = document.createElement('tr');
             newRow.innerHTML = `
-                <td>${new Date(timestamp).toLocaleString()}</td>
-                <td>${distance}</td>
-            `;
+            <td>${formatWIBTimestamp(timestamp)}</td>
+            <td>${distance}</td>
+           `;
             tableBody.insertBefore(newRow, tableBody.firstChild);
 
             while (tableBody.children.length > 5) {
@@ -298,9 +299,18 @@
                 });
 
             // Set up polling intervals
-            setInterval(pollData, 1000);  // Poll sensor data every second
+            setInterval(pollData, 1000); // Poll sensor data every second
             setInterval(pollStatus, 500); // Poll status every 500ms
         });
+
+        function formatWIBTimestamp(timestamp) {
+            const date = new Date(timestamp);
+            date.setHours(date.getHours() + 7); // Add 7 hours for WIB (UTC+7)
+            return date.toLocaleString('id-ID', {
+                timeZone: 'Asia/Jakarta'
+            });
+        }
     </script>
 </body>
+
 </html>
