@@ -7,8 +7,9 @@ const char* ssid = "AYENK";
 const char* password = "TRX7904AAM";
 
 // Server URLs
-const char* sseUrl = "http://192.168.1.127/UAPFIX/sse.php";
-const char* dataUrl = "http://192.168.1.127/UAPFIX/update_distance.php";
+const char* sseUrl = "http://192.168.1.64/UAPFIX/sse.php";
+const char* dataUrl = "http://192.168.1.64/UAPFIX/update_distance.php";
+const char* statusUrl = "http://192.168.1.64/UAPFIX/update_status.php"; // New URL for status updates
 
 // Pin definitions
 const int trigPin = 12;
@@ -18,10 +19,11 @@ const int redLightPin = 14;
 const int violationPin = 27;
 const int buzzerPin = 26;
 
-// Button state variables
+// State variables
 int buttonState = 0;
 int lastButtonState = 0;
 bool addOffset = false;
+bool isBuzzerActive = false;
 unsigned long lastDebounceTime = 0;
 unsigned long debounceDelay = 50;
 
@@ -29,9 +31,11 @@ unsigned long debounceDelay = 50;
 long duration;
 int distance;
 
-// Timer untuk mengirim data
+// Timer variables
 unsigned long lastSendTime = 0;
+unsigned long lastStatusSendTime = 0;
 const long sendInterval = 1000;
+const long statusSendInterval = 2000;  // Send status every 2 seconds
 
 WiFiClient client;
 HTTPClient http;
@@ -48,9 +52,8 @@ void setup() {
     Serial.begin(9600);
     digitalWrite(redLightPin, HIGH);
     digitalWrite(violationPin, LOW);
-    analogWrite(buzzerPin, 0); // Turn off buzzer initially
+    analogWrite(buzzerPin, 0);
 
-    // Connect to WiFi
     WiFi.begin(ssid, password);
     Serial.println("Connecting to WiFi...");
     while (WiFi.status() != WL_CONNECTED) {
@@ -59,16 +62,16 @@ void setup() {
     }
     Serial.println("\nConnected to WiFi");
 
-    // Connect to SSE server
     connectToSSE();
 }
 
 void loop() {
-    // Handle button debounce
+    // Handle button debounce and offset toggle
     int reading = digitalRead(buttonPin);
     if (reading != lastButtonState) {
         lastDebounceTime = millis();
     }
+    
     if ((millis() - lastDebounceTime) > debounceDelay) {
         if (reading != buttonState) {
             buttonState = reading;
@@ -77,12 +80,13 @@ void loop() {
                 digitalWrite(redLightPin, !addOffset);
                 Serial.print("Offset status changed to: ");
                 Serial.println(addOffset ? "ON" : "OFF");
+                sendStatusUpdate(); // Send immediate status update when button is pressed
             }
         }
     }
     lastButtonState = reading;
 
-    // Measure distance using ultrasonic sensor
+    // Measure distance
     digitalWrite(trigPin, LOW);
     delayMicroseconds(2);
     digitalWrite(trigPin, HIGH);
@@ -93,7 +97,8 @@ void loop() {
 
     if (distance <= 0 || distance > 400) {
         Serial.println("Invalid reading detected.");
-        analogWrite(buzzerPin, 0); // Turn off buzzer for invalid readings
+        isBuzzerActive = false;
+        analogWrite(buzzerPin, 0);
         return;
     }
 
@@ -101,37 +106,79 @@ void loop() {
         distance += 200;
     }
 
-    // Calculate buzzer volume based on distance
+    // Handle buzzer activation based on distance
+    bool previousBuzzerState = isBuzzerActive;
     if (!addOffset) {
         if (distance < 51) {
             digitalWrite(violationPin, HIGH);
-            // Calculate buzzer volume - inverse relationship with distance
-            // Closer distance = lower volume, further distance = higher volume
             int buzzerVolume = map(distance, 0, 50, 0, 255);
             analogWrite(buzzerPin, buzzerVolume);
+            isBuzzerActive = true;
             Serial.println("Violation detected! Distance: " + String(distance) + "cm, Buzzer: " + String(buzzerVolume));
         } else {
             digitalWrite(violationPin, LOW);
-            analogWrite(buzzerPin, 0); // Turn off buzzer
+            analogWrite(buzzerPin, 0);
+            isBuzzerActive = false;
         }
     } else {
         digitalWrite(violationPin, LOW);
-        analogWrite(buzzerPin, 0); // Turn off buzzer when offset is active
+        analogWrite(buzzerPin, 0);
+        isBuzzerActive = false;
     }
 
-    // Kirim data ke server setiap interval
+    // Send status update if buzzer state changed
+    if (previousBuzzerState != isBuzzerActive) {
+        sendStatusUpdate();
+    }
+
+    // Regular data and status updates
     if (millis() - lastSendTime >= sendInterval) {
         sendDistanceData(distance);
         lastSendTime = millis();
     }
 
-    // Listen for SSE messages
-    handleSSE();
+    if (millis() - lastStatusSendTime >= statusSendInterval) {
+        sendStatusUpdate();
+        lastStatusSendTime = millis();
+    }
 
+    handleSSE();
     delay(100);
 }
 
-// Rest of the functions (sendDistanceData, connectToSSE, handleSSE, processSSEMessage) remain the same
+void sendStatusUpdate() {
+    if (WiFi.status() == WL_CONNECTED) {
+        HTTPClient http;
+        
+        // Make sure this URL matches your server configuration
+        String url = "http://192.168.1.64/UAPFIX/update_status.php";
+        
+        // Add parameters to URL
+        url += "?offset=" + String(addOffset ? "1" : "0");
+        url += "&buzzer=" + String(isBuzzerActive ? "1" : "0");
+        
+        Serial.println("Sending status update to: " + url);  // Debug print
+        
+        http.begin(url);
+        int httpResponseCode = http.GET();
+        
+        if (httpResponseCode > 0) {
+            String response = http.getString();
+            Serial.println("Status update response: " + response);
+            Serial.println("Status update sent successfully");
+        } else {
+            Serial.print("Error sending status update. Error code: ");
+            Serial.println(httpResponseCode);
+            Serial.print("URL attempted: ");
+            Serial.println(url);
+        }
+        
+        http.end();
+    } else {
+        Serial.println("WiFi not connected. Cannot send status update.");
+    }
+}
+
 void sendDistanceData(int distance) {
     if (WiFi.status() == WL_CONNECTED) {
         HTTPClient http;
@@ -153,7 +200,7 @@ void sendDistanceData(int distance) {
 void connectToSSE() {
     HTTPClient http;
     
-    String host = "192.168.1.127";
+    String host = "192.168.1.64";
     String path = "/UAPFIX/sse.php";
     
     if (!client.connect(host.c_str(), 80)) {
@@ -220,9 +267,25 @@ void processSSEMessage(String message) {
         addOffset = true;
         digitalWrite(redLightPin, LOW);
         Serial.println("Offset turned ON via SSE");
-    } else if (message == "offset_off") {
+        sendStatusUpdate();
+    } 
+    else if (message == "offset_off") {
         addOffset = false;
         digitalWrite(redLightPin, HIGH);
         Serial.println("Offset turned OFF via SSE");
+        sendStatusUpdate();
+    }
+    else if (message == "buzzer_on") {
+        // We'll let the distance measurement control the buzzer
+        // but we can update the status
+        Serial.println("Buzzer control enabled via SSE");
+        sendStatusUpdate();
+    }
+    else if (message == "buzzer_off") {
+        // Force buzzer off
+        analogWrite(buzzerPin, 0);
+        isBuzzerActive = false;
+        Serial.println("Buzzer turned OFF via SSE");
+        sendStatusUpdate();
     }
 }
