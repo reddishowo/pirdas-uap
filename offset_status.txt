@@ -1,1 +1,1 @@
-offset_off
+buzzer_on
