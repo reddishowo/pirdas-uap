@@ -5,39 +5,55 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Distance Monitoring Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
 </head>
-<body class="bg-gray-100">
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100">
     <div class="container mx-auto px-4 py-8">
-        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
-            <h1 class="text-2xl font-bold mb-4">Distance Monitoring System</h1>
+        <div class="bg-white rounded-2xl shadow-2xl p-8 mb-8">
+            <h1 class="text-3xl font-bold mb-6 text-center text-indigo-800">Distance Monitoring System</h1>
+            
             <!-- Controls -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                <div class="bg-gray-50 p-4 rounded-lg">
-                    <h2 class="text-lg font-semibold mb-3">Offset Control</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                <div class="bg-indigo-50 p-6 rounded-xl shadow-lg">
+                    <h2 class="text-xl font-semibold mb-4 text-indigo-800 flex items-center">
+                        <i class="fas fa-sliders-h mr-2"></i>
+                        Offset Control
+                    </h2>
                     <div class="flex space-x-4">
-                        <button onclick="sendCommand('offset_on')" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+                        <button onclick="sendCommand('offset_on')" class="bg-green-500 text-white px-6 py-3 rounded-lg hover:bg-green-600 transition duration-300 ease-in-out transform hover:-translate-y-1 hover:scale-110">
+                            <i class="fas fa-power-off mr-2"></i>
                             Offset ON
                         </button>
-                        <button onclick="sendCommand('offset_off')" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">
+                        <button onclick="sendCommand('offset_off')" class="bg-red-500 text-white px-6 py-3 rounded-lg hover:bg-red-600 transition duration-300 ease-in-out transform hover:-translate-y-1 hover:scale-110">
+                            <i class="fas fa-power-off mr-2"></i>
                             Offset OFF
                         </button>
                     </div>
                 </div>
             </div>
+            
             <!-- Status Display -->
-            <div class="bg-gray-50 p-4 rounded-lg mb-6">
-                <h2 class="text-lg font-semibold mb-2">Current Status</h2>
-                <p id="statusDisplay" class="text-gray-700">Loading...</p>
+            <div class="bg-indigo-50 p-6 rounded-xl shadow-lg mb-8">
+                <h2 class="text-xl font-semibold mb-4 text-indigo-800 flex items-center">
+                    <i class="fas fa-info-circle mr-2"></i>
+                    Current Status
+                </h2>
+                <p id="statusDisplay" class="text-gray-700 text-lg"></p>
             </div>
+            
             <!-- Distance Chart -->
-            <div class="bg-gray-50 p-4 rounded-lg">
-                <h2 class="text-lg font-semibold mb-3">Distance Readings</h2>
-                <canvas id="distanceChart"></canvas>
+            <div class="bg-indigo-50 p-6 rounded-xl shadow-lg">
+                <h2 class="text-xl font-semibold mb-4 text-indigo-800 flex items-center">
+                    <i class="fas fa-chart-line mr-2"></i>
+                    Distance Readings
+                </h2>
+                <canvas id="distanceChart" class="w-full h-96"></canvas>
             </div>
         </div>
     </div>
+    
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <script>
         // Initialize the chart
