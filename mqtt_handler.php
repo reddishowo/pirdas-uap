@@ -1,4 +1,3 @@
-// File 1: mqtt_handler.php
 <?php
 require 'vendor/autoload.php';
 
@@ -73,7 +72,12 @@ class MQTTHandler {
         try {
             $stmt = $this->db->prepare("SELECT * FROM distance_readings ORDER BY timestamp DESC LIMIT ?");
             $stmt->execute([$limit]);
-            return array_reverse($stmt->fetchAll(PDO::FETCH_ASSOC));
+            $readings = array_reverse($stmt->fetchAll(PDO::FETCH_ASSOC));
+            
+            // Log the fetched data
+            error_log("Fetched readings: " . json_encode($readings));
+            
+            return $readings;
         } catch (PDOException $e) {
             error_log("Database error: " . $e->getMessage());
             return [];

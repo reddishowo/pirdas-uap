@@ -1,9 +1,9 @@
 <?php return array(
     'root' => array(
         'name' => '__root__',
-        'pretty_version' => 'dev-Modul4',
-        'version' => 'dev-Modul4',
-        'reference' => '24df02426ed05502f8588229ed893c1730c77f54',
+        'pretty_version' => 'dev-main-mqtt',
+        'version' => 'dev-main-mqtt',
+        'reference' => 'e6478464e10432092cf2d240c8995f6e523bf12c',
         'type' => 'library',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -11,9 +11,9 @@
     ),
     'versions' => array(
         '__root__' => array(
-            'pretty_version' => 'dev-Modul4',
-            'version' => 'dev-Modul4',
-            'reference' => '24df02426ed05502f8588229ed893c1730c77f54',
+            'pretty_version' => 'dev-main-mqtt',
+            'version' => 'dev-main-mqtt',
+            'reference' => 'e6478464e10432092cf2d240c8995f6e523bf12c',
             'type' => 'library',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),
